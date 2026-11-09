@@ -1,41 +1,21 @@
 import { useRef, useState } from 'react';
 import {
-  allowlistItem,
-  blocklistItem,
+  DEFAULT_PROFILE_ID,
   getSettings,
+  historyItem,
+  profilesItem,
   schedulesItem,
   settingsItem,
   statsItem,
   withDefaults,
+  type DayStats,
+  type Profile,
   type Schedule,
-  type Stats,
 } from '@/lib/storage';
+import { loadProfiles } from '@/lib/profiles';
 import { normalizeDomain } from '@/lib/domains';
 import type { T } from '@/lib/i18n';
 import { Section, ghostBtn } from './ui';
-
-export function StatsPanel({ stats, t }: { stats: Stats; t: T }) {
-  const hours = Math.floor(stats.focusMinutes / 60);
-  const mins = stats.focusMinutes % 60;
-  const items = [
-    { label: t('statFocus'), value: hours ? `${hours}h ${mins}m` : `${mins}m` },
-    { label: t('statSessions'), value: stats.sessionsCompleted },
-    { label: t('statBlocked'), value: stats.blockedAttempts },
-  ];
-
-  return (
-    <Section title={t('statsTitle')}>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {items.map((it) => (
-          <div key={it.label} className="rounded-xl border border-line bg-panel px-4 py-3">
-            <div className="text-2xl font-semibold tabular">{it.value}</div>
-            <div className="text-xs text-muted mt-0.5">{it.label}</div>
-          </div>
-        ))}
-      </div>
-    </Section>
-  );
-}
 
 const domainsFrom = (value: unknown): string[] =>
   Array.isArray(value)
@@ -64,8 +44,46 @@ const schedulesFrom = (value: unknown): Schedule[] =>
           start: s.start,
           end: s.end,
           enabled: s.enabled !== false,
+          profileId: typeof s.profileId === 'string' ? s.profileId : undefined,
         }))
     : [];
+
+/** Perfiles del archivo. Las copias de la v0.2 traen una sola lista: se convierte en «General». */
+function profilesFrom(data: any): Profile[] {
+  if (Array.isArray(data.profiles)) {
+    return data.profiles
+      .filter((p: any) => p && typeof p.id === 'string' && typeof p.name === 'string')
+      .map((p: any) => ({
+        id: p.id,
+        name: String(p.name).slice(0, 30),
+        mode: p.mode === 'allowlist' ? 'allowlist' : 'blocklist',
+        blocklist: domainsFrom(p.blocklist),
+        allowlist: domainsFrom(p.allowlist),
+      }));
+  }
+  if (Array.isArray(data.blocklist) || Array.isArray(data.allowlist)) {
+    return [
+      {
+        id: DEFAULT_PROFILE_ID,
+        name: 'General',
+        mode: data.settings?.mode === 'allowlist' ? 'allowlist' : 'blocklist',
+        blocklist: domainsFrom(data.blocklist),
+        allowlist: domainsFrom(data.allowlist),
+      },
+    ];
+  }
+  return [];
+}
+
+const historyFrom = (value: unknown): Record<string, DayStats> => {
+  if (!value || typeof value !== 'object') return {};
+  const num = (v: unknown) => (typeof v === 'number' && v >= 0 ? Math.round(v) : 0);
+  return Object.fromEntries(
+    Object.entries(value as Record<string, any>)
+      .filter(([k, v]) => /^\d{4}-\d{2}-\d{2}$/.test(k) && v && typeof v === 'object')
+      .map(([k, v]) => [k, { focus: num(v.focus), sessions: num(v.sessions), blocked: num(v.blocked) }]),
+  );
+};
 
 export function Backup({ locked, t }: { locked: boolean; t: T }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -74,12 +92,12 @@ export function Backup({ locked, t }: { locked: boolean; t: T }) {
   const exportConfig = async () => {
     const data = {
       app: 'MindSharpener',
-      version: 2,
-      blocklist: await blocklistItem.getValue(),
-      allowlist: await allowlistItem.getValue(),
+      version: 3,
+      profiles: await loadProfiles(),
       schedules: await schedulesItem.getValue(),
       settings: await getSettings(),
       stats: await statsItem.getValue(),
+      history: await historyItem.getValue(),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -93,19 +111,40 @@ export function Backup({ locked, t }: { locked: boolean; t: T }) {
     try {
       const data = JSON.parse(await file.text());
       if (!data || typeof data !== 'object') throw new Error('invalid');
-      const blocklist = domainsFrom(data.blocklist);
+      const imported = profilesFrom(data);
 
       if (locked) {
-        // Durante el bloqueo solo se permite ampliar la lista negra.
-        const current = await blocklistItem.getValue();
-        await blocklistItem.setValue([...new Set([...current, ...blocklist])]);
+        // Durante el bloqueo solo se permite ampliar las listas negras de los
+        // perfiles que ya existen.
+        const current = await loadProfiles();
+        await profilesItem.setValue(
+          current.map((p) => {
+            const extra = imported.find((i) => i.id === p.id)?.blocklist ?? [];
+            return { ...p, blocklist: [...new Set([...p.blocklist, ...extra])] };
+          }),
+        );
         setMessage(t('importedLocked'));
         return;
       }
 
-      if (Array.isArray(data.blocklist)) await blocklistItem.setValue(blocklist);
-      if (Array.isArray(data.allowlist)) await allowlistItem.setValue(domainsFrom(data.allowlist));
+      if (imported.length > 0) await profilesItem.setValue(imported);
       if (Array.isArray(data.schedules)) await schedulesItem.setValue(schedulesFrom(data.schedules));
+      if (data.history) {
+        // Se combina con lo que ya hay: nos quedamos con el mayor de cada día.
+        const current = await historyItem.getValue();
+        const merged = { ...current };
+        for (const [k, v] of Object.entries(historyFrom(data.history))) {
+          const c = current[k];
+          merged[k] = c
+            ? {
+                focus: Math.max(c.focus, v.focus),
+                sessions: Math.max(c.sessions, v.sessions),
+                blocked: Math.max(c.blocked, v.blocked),
+              }
+            : v;
+        }
+        await historyItem.setValue(merged);
+      }
       if (data.settings && typeof data.settings === 'object') {
         await settingsItem.setValue(withDefaults(data.settings));
       }

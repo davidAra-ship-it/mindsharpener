@@ -1,32 +1,58 @@
+import { useEffect } from 'react';
 import {
-  allowlistItem,
   blockingStateItem,
-  blocklistItem,
+  historyItem,
+  profilesItem,
   schedulesItem,
+  sessionItem,
   statsItem,
 } from '@/lib/storage';
+import { loadProfiles } from '@/lib/profiles';
+import { normalizeSession } from '@/lib/session';
 import { useSettings, useStorageItem, useT } from '@/lib/hooks';
-import { ModeAndLists } from './Lists';
+import { ProfilesSection } from './Lists';
 import { Schedules } from './Schedules';
-import { FrictionPrefs, LanguagePrefs, PomodoroPrefs, YoutubePrefs } from './Preferences';
-import { Backup, StatsPanel } from './Data';
+import {
+  FrictionPrefs,
+  LanguagePrefs,
+  PassPrefs,
+  PomodoroPrefs,
+  YoutubePrefs,
+} from './Preferences';
+import { Backup } from './Data';
+import { ProgressPanel } from './Progress';
 
 export default function App() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const settings = useSettings();
-  const blocklist = useStorageItem(blocklistItem);
-  const allowlist = useStorageItem(allowlistItem);
+  const profiles = useStorageItem(profilesItem);
   const schedules = useStorageItem(schedulesItem);
   const state = useStorageItem(blockingStateItem);
   const stats = useStorageItem(statsItem);
+  const history = useStorageItem(historyItem);
+  const rawSession = useStorageItem(sessionItem);
 
-  if (!settings || !blocklist || !allowlist || !schedules || !state || !stats) return null;
+  useEffect(() => {
+    loadProfiles(); // crea el perfil «General» si vienes de la v0.2
+  }, []);
+
+  if (
+    !settings ||
+    !profiles?.length ||
+    !schedules ||
+    !state ||
+    !stats ||
+    !history ||
+    rawSession === undefined
+  ) {
+    return null;
+  }
   const locked = state.active;
+  const activeIds = state.active ? (state.profileIds ?? []) : [];
 
-  const youtubeFullyBlocked =
-    settings.mode === 'blocklist'
-      ? blocklist.includes('youtube.com')
-      : !allowlist.includes('youtube.com');
+  const youtubeFullyBlocked = profiles.some((p) =>
+    p.mode === 'blocklist' ? p.blocklist.includes('youtube.com') : !p.allowlist.includes('youtube.com'),
+  );
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-10 flex flex-col gap-10">
@@ -37,14 +63,22 @@ export default function App() {
         <p className="text-sm text-muted">{t('tagline')}</p>
       </header>
 
-      <ModeAndLists
-        mode={settings.mode}
-        blocklist={blocklist}
-        allowlist={allowlist}
-        locked={locked}
+      <ProgressPanel
+        stats={stats}
+        history={history}
+        session={rawSession ? normalizeSession(rawSession) : null}
+        settings={settings}
+        lang={lang}
         t={t}
       />
-      <Schedules schedules={schedules} locked={locked} t={t} />
+      {locked && (
+        <p className="text-sm rounded-lg border border-edge/40 bg-edge/10 text-edge px-3 py-2 -mb-4">
+          {t('lockedNotice')}
+        </p>
+      )}
+
+      <ProfilesSection profiles={profiles} schedules={schedules} activeIds={activeIds} t={t} />
+      <Schedules schedules={schedules} profiles={profiles} locked={locked} t={t} />
       <YoutubePrefs
         settings={settings}
         youtubeFullyBlocked={youtubeFullyBlocked}
@@ -53,8 +87,8 @@ export default function App() {
       />
       <PomodoroPrefs settings={settings} t={t} />
       <FrictionPrefs settings={settings} locked={locked} t={t} />
+      <PassPrefs settings={settings} locked={locked} t={t} />
       <LanguagePrefs settings={settings} t={t} />
-      <StatsPanel stats={stats} t={t} />
       <Backup locked={locked} t={t} />
     </main>
   );

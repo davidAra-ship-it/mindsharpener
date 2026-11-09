@@ -1,6 +1,15 @@
 import { buildRules, domainRegex, SHORTS_REGEX } from '../lib/rules.ts';
 import { normalizeDomain } from '../lib/domains.ts';
 import { isScheduleActive, scheduleEnd } from '../lib/schedule.ts';
+import {
+  currentPasses,
+  effectivePolicy,
+  lastDays,
+  minutesByDay,
+  passDomainFor,
+  pruneHistory,
+  streak,
+} from '../lib/policy.ts';
 
 let fail = 0;
 const check = (name: string, got: unknown, want: unknown) => {
@@ -32,17 +41,63 @@ check('video normal', sr.test('https://www.youtube.com/watch?v=shorts'), false);
 check('canal "shortsfan"', sr.test('https://www.youtube.com/shortsfan'), false);
 
 // Construcción de reglas
-const base = { blocklist: ['a.com', 'b.com'], allowlist: ['work.com'], blockShorts: false };
-check('inactivo = 0 reglas', buildRules({ ...base, full: false, mode: 'blocklist' }, 'x').length, 0);
-check('lista negra = 2 reglas', buildRules({ ...base, full: true, mode: 'blocklist' }, 'x').length, 2);
-const allow = buildRules({ ...base, full: true, mode: 'allowlist', blockShorts: true }, 'x');
+const bl = (blocklist: string[]) => ({ id: 'b', name: 'b', mode: 'blocklist' as const, blocklist, allowlist: [] });
+const al = (allowlist: string[]) => ({ id: 'a', name: 'a', mode: 'allowlist' as const, blocklist: [], allowlist });
+const none = { passes: [], blockShorts: false };
+check('inactivo = 0 reglas', buildRules({ ...none, policy: effectivePolicy([]) }, 'x').length, 0);
+check('lista negra = 2 reglas', buildRules({ ...none, policy: effectivePolicy([bl(['a.com', 'b.com'])]) }, 'x').length, 2);
+const allow = buildRules({ policy: effectivePolicy([al(['work.com'])]), passes: [], blockShorts: true }, 'x');
 check('lista blanca: prioridades', allow.map((r) => [r.action.type, r.priority]), [
   ['redirect', 1],
   ['allow', 2],
-  ['redirect', 3],
+  ['redirect', 5],
 ]);
 check('ids únicos', new Set(allow.map((r) => r.id)).size, allow.length);
-check('solo shorts fuera del foco', buildRules({ ...base, full: false, mode: 'blocklist', blockShorts: true }, 'x').length, 1);
+check('solo shorts fuera del foco', buildRules({ policy: null, passes: [], blockShorts: true }, 'x').length, 1);
+const withPass = buildRules({ policy: effectivePolicy([bl(['a.com'])]), passes: ['a.com'], blockShorts: true }, 'x');
+check('pase gana al bloqueo, no a Shorts', withPass.map((r) => [r.action.type, r.priority]), [
+  ['redirect', 3],
+  ['allow', 4],
+  ['redirect', 5],
+]);
+check('pase sin bloqueo = ignorado', buildRules({ policy: null, passes: ['a.com'], blockShorts: false }, 'x').length, 0);
+check('redirección conserva la URL', (allow[0]!.action.redirect as any).regexSubstitution, 'x#\\0');
+
+// Perfiles combinados: gana lo más estricto
+check('dos listas negras se suman', effectivePolicy([bl(['a.com']), bl(['b.com', 'a.com'])]), {
+  blockAll: false, allow: [], block: ['a.com', 'b.com'],
+});
+check('listas blancas se intersecan', effectivePolicy([al(['x.com', 'y.com']), al(['y.com', 'z.com'])]), {
+  blockAll: true, allow: ['y.com'], block: [],
+});
+check('negra + blanca', effectivePolicy([al(['a.com', 'w.com']), bl(['a.com'])]), {
+  blockAll: true, allow: ['a.com', 'w.com'], block: ['a.com'],
+});
+const pol = effectivePolicy([bl(['youtube.com'])])!;
+check('pase al dominio bloqueado', passDomainFor('m.youtube.com', pol), 'youtube.com');
+check('pase en lista blanca = host', passDomainFor('www.news.com', effectivePolicy([al([])])!), 'news.com');
+
+// Pases del día
+const t0 = new Date('2026-11-09T10:00').getTime();
+check('pases: mismo día', currentPasses({ day: '2026-11-09', used: 1, active: [{ domain: 'a.com', until: t0 + 1 }] }, t0), {
+  day: '2026-11-09', used: 1, active: [{ domain: 'a.com', until: t0 + 1 }],
+});
+check('pases: nuevo día reinicia', currentPasses({ day: '2026-11-08', used: 2, active: [{ domain: 'a.com', until: t0 - 1 }] }, t0), {
+  day: '2026-11-09', used: 0, active: [],
+});
+
+// Historial
+check('reparto por días (cruza medianoche)', minutesByDay(new Date('2026-11-09T23:40').getTime(), new Date('2026-11-10T00:30').getTime()), {
+  '2026-11-09': 20, '2026-11-10': 30,
+});
+const h = { '2026-11-07': { focus: 130, sessions: 2, blocked: 0 }, '2026-11-08': { focus: 120, sessions: 1, blocked: 0 } };
+check('racha viva aunque hoy aún no', streak(h, 120, t0), 2);
+check('racha cuenta hoy si se cumple', streak({ ...h, '2026-11-09': { focus: 125, sessions: 1, blocked: 0 } }, 120, t0), 3);
+check('racha rota', streak({ '2026-11-07': { focus: 200, sessions: 1, blocked: 0 } }, 120, t0), 0);
+check('últimos 7 días', lastDays(h, 7, t0).map((d) => d.key), [
+  '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08', '2026-11-09',
+]);
+check('poda', Object.keys(pruneHistory({ '2020-01-01': h['2026-11-07'], ...h }, t0)), ['2026-11-07', '2026-11-08']);
 
 // Horarios (fechas locales). 2026-11-09 es lunes.
 const work = { id: '1', name: 'w', days: [1, 2, 3, 4, 5], start: '09:00', end: '13:00', enabled: true };

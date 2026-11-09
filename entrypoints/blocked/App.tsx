@@ -1,9 +1,11 @@
-import { useEffect, useMemo } from 'react';
-import { blockingStateItem, sessionItem, statsItem } from '@/lib/storage';
-import { formatRemaining, normalizeSession } from '@/lib/session';
+import { useEffect, useMemo, useState } from 'react';
+import { blockingStateItem, passesItem, sessionItem, type Settings } from '@/lib/storage';
+import { formatRemaining, normalizeSession, recordBlocked } from '@/lib/session';
+import { currentPasses, type PassResponse } from '@/lib/policy';
 import { hostnameOf } from '@/lib/domains';
 import { useNow, useSettings, useStorageItem, useT } from '@/lib/hooks';
-import type { Key } from '@/lib/i18n';
+import type { Key, T } from '@/lib/i18n';
+import { FrictionGate } from '@/components/FrictionGate';
 
 const QUOTES: Key[] = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'];
 const SHORTS_RE = /^https?:\/\/([^/?#]*\.)?youtube\.com\/shorts/i;
@@ -24,9 +26,7 @@ export default function App() {
   // Contamos el intento una sola vez y solo para páginas completas (no iframes).
   useEffect(() => {
     if (!isTopFrame) return;
-    statsItem
-      .getValue()
-      .then((s) => statsItem.setValue({ ...s, blockedAttempts: s.blockedAttempts + 1 }));
+    recordBlocked();
   }, []);
 
   if (!settings || !state || rawSession === undefined) return null;
@@ -107,7 +107,60 @@ export default function App() {
         <button onClick={closeTab} className={btn}>
           {t('backToWork')}
         </button>
+        {state.active && !shortsBlocked && originalUrl.startsWith('http') && (
+          <PassRequest settings={settings} url={originalUrl} now={now} t={t} />
+        )}
       </div>
     </main>
+  );
+}
+
+/** Pase de unos minutos para entrar en la web, con la misma fricción que terminar antes. */
+function PassRequest({ settings, url, now, t }: { settings: Settings; url: string; now: number; t: T }) {
+  const stored = useStorageItem(passesItem);
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState('');
+  const { minutes, perDay } = settings.pass;
+
+  if (!stored || perDay <= 0 || settings.friction === 'locked') return null;
+  const left = Math.max(0, perDay - currentPasses(stored, now).used);
+
+  if (left === 0) return <p className="text-xs text-muted">{t('noPassesLeft')}</p>;
+
+  const request = async () => {
+    try {
+      const res: PassResponse = await browser.runtime.sendMessage({ type: 'grant-pass', url });
+      if (res?.ok) location.href = url;
+      else setError(res?.reason === 'none-left' ? t('noPassesLeft') : t('passFailed'));
+    } catch {
+      setError(t('passFailed'));
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-2 w-full max-w-xs">
+      {open ? (
+        <FrictionGate
+          settings={settings}
+          purpose="continue"
+          confirmLabel={t('enterPass', { n: minutes })}
+          confirmClass="rounded-lg bg-edge text-ink font-semibold py-2 text-sm hover:bg-edge-strong disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          onConfirm={request}
+          onCancel={() => setOpen(false)}
+          t={t}
+        />
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          className="text-sm text-muted underline underline-offset-4 decoration-line hover:text-paper transition-colors"
+        >
+          {t('getPass', { n: minutes })}
+        </button>
+      )}
+      <p className="text-xs text-muted">
+        {left === 1 ? t('passesLeftOne') : t('passesLeft', { n: left })}
+      </p>
+      {error && <p className="text-xs text-red-400">{error}</p>}
+    </div>
   );
 }

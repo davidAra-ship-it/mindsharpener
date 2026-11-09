@@ -26,5 +26,12 @@ export default defineConfig({
     action: {
       default_title: '__MSG_extName__',
     },
+    // Un solo atajo, fácil de recordar: Alt+Mayús+F («F de foco») abre el popup
+    // con el cursor en la tarea; Enter empieza la sesión.
+    commands: {
+      _execute_action: {
+        suggested_key: { default: 'Alt+Shift+F', mac: 'Alt+Shift+F' },
+      },
+    },
   },
 });

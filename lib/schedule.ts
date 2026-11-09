@@ -38,3 +38,7 @@ export function scheduleEnd(s: Schedule, date: Date): number {
 export function findActiveSchedule(list: Schedule[], date: Date): Schedule | undefined {
   return list.find((s) => isScheduleActive(s, date));
 }
+
+export function findActiveSchedules(list: Schedule[], date: Date): Schedule[] {
+  return list.filter((s) => isScheduleActive(s, date));
+}

@@ -161,3 +161,50 @@ export function LanguagePrefs({ settings, t }: { settings: Settings; t: T }) {
     </Section>
   );
 }
+
+export function PassPrefs({
+  settings,
+  locked,
+  t,
+}: {
+  settings: Settings;
+  locked: boolean;
+  t: T;
+}) {
+  const { pass } = settings;
+  const set = (patch: Partial<Settings['pass']>) => updateSettings({ pass: { ...pass, ...patch } });
+  // Con el bloqueo activo solo se puede ir a menos (menos pases, más cortos).
+  const allowed = (values: number[], current: number) =>
+    locked ? values.filter((v) => v <= current) : values;
+
+  return (
+    <Section title={t('passTitle')} desc={t('passDesc')}>
+      {settings.friction === 'locked' ? (
+        <p className="text-sm text-muted">{t('passStrictNote')}</p>
+      ) : (
+        <Group>
+          <Select
+            label={t('passPerDay')}
+            value={pass.perDay}
+            options={allowed([0, 1, 2, 3, 5], pass.perDay).map((n) => ({
+              value: n,
+              label: n === 0 ? t('passOff') : String(n),
+            }))}
+            onChange={(v) => set({ perDay: v })}
+          />
+          {pass.perDay > 0 && (
+            <Select
+              label={t('passMinutes')}
+              value={pass.minutes}
+              options={allowed([2, 5, 10, 15], pass.minutes).map((v) => ({
+                value: v,
+                label: `${v} min`,
+              }))}
+              onChange={(v) => set({ minutes: v })}
+            />
+          )}
+        </Group>
+      )}
+    </Section>
+  );
+}
