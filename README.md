@@ -6,6 +6,29 @@ Extensión de navegador para bloquear las webs que te roban la atención (YouTub
 
 Funciona en Brave, Chrome, Edge y otros navegadores basados en Chromium (Firefox, próximamente).
 
+## Así se ve
+
+![Página de foco: aparece en lugar de la web bloqueada, con el tiempo restante y tu tarea](store/screenshots/es/1-focus-page.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="store/screenshots/es/2-popup.png" alt="Popup para empezar una sesión de foco"></td>
+    <td width="50%"><img src="store/screenshots/es/3-progress.png" alt="Progreso: tiempo de foco de hoy, racha y gráfica de los últimos días"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Empieza una sesión</b> con <code>Alt+Mayús+F</code></td>
+    <td align="center"><b>Tu progreso</b> frente al objetivo diario</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="store/screenshots/es/4-profiles.png" alt="Perfiles por actividad con sus listas de webs"></td>
+    <td width="50%"><img src="store/screenshots/es/5-pass.png" alt="Pase temporal para entrar unos minutos en una web bloqueada"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Perfiles</b> por actividad</td>
+    <td align="center"><b>Pase temporal</b> cuando de verdad lo necesitas</td>
+  </tr>
+</table>
+
 ## Funcionalidades
 
 - **Sesiones de foco** de 25, 50, 90 minutos o la duración que elijas, con la tarea en la que vas a trabajar.
