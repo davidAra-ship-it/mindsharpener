@@ -17,7 +17,7 @@ Todo lo necesario para publicar MindSharpener en la Chrome Web Store (también v
 | Resumen | Sale del manifiesto (`public/_locales/*/messages.json`) |
 | Categoría | Productividad → Flujo de trabajo y planificación |
 | Idioma | Inglés (por defecto) y español: añade el español en *Idiomas* para la ficha traducida |
-| Icono | `public/icon/128.png` |
+| Icono de la tienda (128×128) | `store/icon-128.png` (el icono a 96×96 con 16 px de margen transparente, como pide Google) |
 | Capturas (1280×800) | `store/screenshots/<idioma>/1…5-*.png`, en ese orden |
 | Imagen promocional pequeña (440×280) | `store/screenshots/<idioma>/promo-small-440x280.png` |
 | Sitio web | https://github.com/stillmonk/mindsharpener |
