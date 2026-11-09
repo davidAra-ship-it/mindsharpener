@@ -25,7 +25,7 @@ Puedes exportar estos datos a un archivo JSON y borrarlos desinstalando la exten
 - **alarms**: saber cuándo termina una sesión, un descanso, un horario o un pase.
 - **notifications**: avisarte cuando termina una sesión o un descanso.
 
-El código es abierto: puedes comprobar todo lo anterior en https://github.com/davidAra-ship-it/mindsharpener.
+El código es abierto: puedes comprobar todo lo anterior en https://github.com/stillmonk/mindsharpener.
 
 ---
 
@@ -56,4 +56,4 @@ You can export this data to a JSON file, and delete it by uninstalling the exten
 - **alarms**: to know when a session, break, schedule or pass ends.
 - **notifications**: to tell you when a session or break ends.
 
-The code is open source: you can verify all of the above at https://github.com/davidAra-ship-it/mindsharpener.
+The code is open source: you can verify all of the above at https://github.com/stillmonk/mindsharpener.

@@ -7,9 +7,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/davidAra-ship-it/mindsharpener.git"
+    "url": "https://github.com/stillmonk/mindsharpener.git"
   },
-  "homepage": "https://github.com/davidAra-ship-it/mindsharpener#readme",
+  "homepage": "https://github.com/stillmonk/mindsharpener#readme",
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",

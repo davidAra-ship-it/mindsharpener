@@ -20,8 +20,8 @@ Todo lo necesario para publicar MindSharpener en la Chrome Web Store (también v
 | Icono | `public/icon/128.png` |
 | Capturas (1280×800) | `store/screenshots/<idioma>/1…5-*.png`, en ese orden |
 | Imagen promocional pequeña (440×280) | `store/screenshots/<idioma>/promo-small-440x280.png` |
-| Sitio web | https://github.com/davidAra-ship-it/mindsharpener |
-| Asistencia | https://github.com/davidAra-ship-it/mindsharpener/issues |
+| Sitio web | https://github.com/stillmonk/mindsharpener |
+| Asistencia | https://github.com/stillmonk/mindsharpener/issues |
 
 ### Descripción (español)
 
@@ -45,7 +45,7 @@ FUNCIONES
 • En español e inglés. Exporta e importa tu configuración en JSON.
 
 PRIVACIDAD
-Todo se queda en tu navegador. Las estadísticas son solo totales por día: nunca se guarda qué webs visitas. El código está en GitHub para que lo compruebes: https://github.com/davidAra-ship-it/mindsharpener
+Todo se queda en tu navegador. Las estadísticas son solo totales por día: nunca se guarda qué webs visitas. El código está en GitHub para que lo compruebes: https://github.com/stillmonk/mindsharpener
 ```
 
 ### Descripción (inglés)
@@ -70,7 +70,7 @@ FEATURES
 • English and Spanish. Export and import your settings as JSON.
 
 PRIVACY
-Everything stays in your browser. Statistics are daily totals only: the sites you visit are never stored. The code is on GitHub so you can check it yourself: https://github.com/davidAra-ship-it/mindsharpener
+Everything stays in your browser. Statistics are daily totals only: the sites you visit are never stored. The code is on GitHub so you can check it yourself: https://github.com/stillmonk/mindsharpener
 ```
 
 ## Privacidad (pestaña *Privacy practices*)
@@ -100,7 +100,7 @@ MindSharpener helps users stay focused by blocking distracting websites during f
 - I do not use or transfer user data for purposes that are unrelated to my item's single purpose.
 - I do not use or transfer user data to determine creditworthiness or for lending purposes.
 
-**Privacy policy URL:** https://github.com/davidAra-ship-it/mindsharpener/blob/main/PRIVACY.md
+**Privacy policy URL:** https://github.com/stillmonk/mindsharpener/blob/main/PRIVACY.md
 
 ## Distribución
 

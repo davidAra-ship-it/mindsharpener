@@ -25,12 +25,12 @@ Funciona en Brave, Chrome, Edge y otros navegadores basados en Chromium (Firefox
 
 ## Instalación (desde el código)
 
-**Opción rápida:** descarga el `.zip` de la [última release](https://github.com/davidAra-ship-it/mindsharpener/releases/latest) y descomprímelo. Después sigue los pasos de abajo eligiendo esa carpeta.
+**Opción rápida:** descarga el `.zip` de la [última release](https://github.com/stillmonk/mindsharpener/releases/latest) y descomprímelo. Después sigue los pasos de abajo eligiendo esa carpeta.
 
 **Desde el código:** necesitas [Node.js](https://nodejs.org/) 22.18 o superior.
 
 ```bash
-git clone https://github.com/davidAra-ship-it/mindsharpener.git
+git clone https://github.com/stillmonk/mindsharpener.git
 cd mindsharpener
 npm install
 npm run build
