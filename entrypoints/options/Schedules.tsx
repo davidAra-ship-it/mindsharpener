@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { schedulesItem, type Schedule } from '@/lib/storage';
+import { schedulesItem, type Profile, type Schedule } from '@/lib/storage';
+import { resolveProfile } from '@/lib/profiles';
 import { isScheduleActive, toMinutes } from '@/lib/schedule';
 import type { T } from '@/lib/i18n';
 import { useNow } from '@/lib/hooks';
@@ -10,13 +11,16 @@ const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 export function Schedules({
   schedules,
+  profiles,
   locked,
   t,
 }: {
   schedules: Schedule[];
+  profiles: Profile[];
   locked: boolean;
   t: T;
 }) {
+  const showProfiles = profiles.length > 1;
   const now = useNow(30_000);
   const dayNames = t('days').split(',');
   const save = (next: Schedule[]) => schedulesItem.setValue(next);
@@ -66,6 +70,7 @@ export function Schedules({
                       .join(' ')}{' '}
                     · {s.start}–{s.end}
                     {toMinutes(s.end) < toMinutes(s.start) ? ` ${t('overnight')}` : ''}
+                    {showProfiles ? ` · ${resolveProfile(profiles, s.profileId)?.name ?? ''}` : ''}
                   </div>
                 </div>
                 <button
@@ -81,20 +86,28 @@ export function Schedules({
         </ul>
       )}
 
-      <NewSchedule dayNames={dayNames} onAdd={(s) => save([...schedules, s])} t={t} />
+      <NewSchedule
+        dayNames={dayNames}
+        profiles={profiles}
+        onAdd={(s) => save([...schedules, s])}
+        t={t}
+      />
     </Section>
   );
 }
 
 function NewSchedule({
   dayNames,
+  profiles,
   onAdd,
   t,
 }: {
   dayNames: string[];
+  profiles: Profile[];
   onAdd: (s: Schedule) => void;
   t: T;
 }) {
+  const [profileId, setProfileId] = useState<string>();
   const [name, setName] = useState('');
   const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [start, setStart] = useState('09:00');
@@ -121,6 +134,7 @@ function NewSchedule({
           start,
           end,
           enabled: true,
+          profileId: resolveProfile(profiles, profileId)?.id,
         });
         setName('');
       }}
@@ -168,6 +182,22 @@ function NewSchedule({
             className={`${inputClass} [color-scheme:dark]`}
           />
         </label>
+        {profiles.length > 1 && (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-muted">{t('profile')}</span>
+            <select
+              value={resolveProfile(profiles, profileId)?.id}
+              onChange={(e) => setProfileId(e.target.value)}
+              className={`${inputClass} [color-scheme:dark]`}
+            >
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <button className={`${primaryBtn} ml-auto`}>{t('addSchedule')}</button>
       </div>
       {error && <p className="text-sm text-red-400">{error}</p>}

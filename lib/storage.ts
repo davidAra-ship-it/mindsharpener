@@ -17,6 +17,17 @@ export interface FocusSession {
   cycle: number;
   /** Duración de las sesiones de foco de esta tanda (para encadenar la siguiente). */
   focusMinutes: number;
+  /** Perfil de bloqueo de la sesión (si falta, el primero). */
+  profileId?: string;
+}
+
+/** Un conjunto de webs a bloquear según la actividad (Estudio, Trabajo…). */
+export interface Profile {
+  id: string;
+  name: string;
+  mode: BlockMode;
+  blocklist: string[];
+  allowlist: string[];
 }
 
 export interface Schedule {
@@ -27,6 +38,8 @@ export interface Schedule {
   start: string; // "HH:MM"
   end: string; // "HH:MM" (si es menor que start, termina al día siguiente)
   enabled: boolean;
+  /** Perfil que aplica el horario (si falta, el primero). */
+  profileId?: string;
 }
 
 export interface YoutubeSettings {
@@ -39,7 +52,6 @@ export interface YoutubeSettings {
 }
 
 export interface Settings {
-  mode: BlockMode;
   friction: Friction;
   waitSeconds: number;
   pomodoro: {
@@ -50,6 +62,11 @@ export interface Settings {
     autoStartFocus: boolean;
   };
   youtube: YoutubeSettings;
+  /** Pases temporales para entrar en una web bloqueada. perDay = 0: desactivados. */
+  pass: { minutes: number; perDay: number };
+  dailyGoalMinutes: number;
+  /** Último perfil elegido en el popup. */
+  lastProfileId: string;
   language: Lang;
 }
 
@@ -59,6 +76,21 @@ export interface BlockingState {
   source: 'session' | 'schedule' | null;
   scheduleName?: string;
   until?: number;
+  /** Perfiles que se están aplicando ahora mismo. */
+  profileIds?: string[];
+}
+
+/** Totales de un día. Solo números: nunca qué webs visitaste. */
+export interface DayStats {
+  focus: number; // minutos
+  sessions: number;
+  blocked: number;
+}
+
+export interface Passes {
+  day: string; // YYYY-MM-DD (local)
+  used: number;
+  active: { domain: string; until: number }[];
 }
 
 export interface Stats {
@@ -77,8 +109,9 @@ export const DEFAULT_BLOCKLIST = [
   'facebook.com',
 ];
 
+export const DEFAULT_PROFILE_ID = 'general';
+
 export const DEFAULT_SETTINGS: Settings = {
-  mode: 'blocklist',
   friction: 'phrase',
   waitSeconds: 30,
   pomodoro: {
@@ -95,6 +128,9 @@ export const DEFAULT_SETTINGS: Settings = {
     comments: false,
     always: false,
   },
+  pass: { minutes: 5, perDay: 2 },
+  dailyGoalMinutes: 120,
+  lastProfileId: DEFAULT_PROFILE_ID,
   language: 'auto',
 };
 
@@ -124,11 +160,15 @@ export const ALLOW_PRESETS: { label: string; domains: string[] }[] = [
   { label: 'Microsoft 365', domains: ['office.com', 'microsoft.com'] },
 ];
 
-export const blocklistItem = storage.defineItem<string[]>('local:blocklist', {
-  fallback: DEFAULT_BLOCKLIST,
+export const profilesItem = storage.defineItem<Profile[]>('local:profiles', {
+  fallback: [],
 });
 
-export const allowlistItem = storage.defineItem<string[]>('local:allowlist', {
+/** Listas de la v0.2 (antes de los perfiles). Solo se leen para migrar. */
+export const legacyBlocklistItem = storage.defineItem<string[]>('local:blocklist', {
+  fallback: DEFAULT_BLOCKLIST,
+});
+export const legacyAllowlistItem = storage.defineItem<string[]>('local:allowlist', {
   fallback: [],
 });
 
@@ -152,12 +192,22 @@ export const statsItem = storage.defineItem<Stats>('local:stats', {
   fallback: { blockedAttempts: 0, sessionsCompleted: 0, focusMinutes: 0 },
 });
 
+/** Historial diario: { "2026-11-09": { focus, sessions, blocked } }. */
+export const historyItem = storage.defineItem<Record<string, DayStats>>('local:history', {
+  fallback: {},
+});
+
+export const passesItem = storage.defineItem<Passes>('local:passes', {
+  fallback: { day: '', used: 0, active: [] },
+});
+
 /** Rellena con valores por defecto los ajustes que falten (p. ej. tras una actualización). */
 export function withDefaults(s: Partial<Settings> | null | undefined): Settings {
   return {
     ...DEFAULT_SETTINGS,
     ...s,
     pomodoro: { ...DEFAULT_SETTINGS.pomodoro, ...s?.pomodoro },
+    pass: { ...DEFAULT_SETTINGS.pass, ...s?.pass },
     youtube: { ...DEFAULT_SETTINGS.youtube, ...s?.youtube },
   };
 }

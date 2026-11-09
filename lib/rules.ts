@@ -1,5 +1,5 @@
 import type { Browser } from 'wxt/browser';
-import type { BlockMode } from './storage';
+import type { Policy } from './policy';
 
 type Rule = Browser.declarativeNetRequest.Rule;
 
@@ -15,11 +15,10 @@ export function domainRegex(domain: string): string {
 export const SHORTS_REGEX = '^https?://([^/?#]*\\.)?youtube\\.com/shorts([/?#].*)?$';
 
 export interface RuleInput {
-  /** Bloqueo completo activo (sesión de foco u horario). */
-  full: boolean;
-  mode: BlockMode;
-  blocklist: string[];
-  allowlist: string[];
+  /** Bloqueo activo (sesión de foco u horario); null si no hay ninguno. */
+  policy: Policy | null;
+  /** Dominios con un pase temporal en vigor. */
+  passes: string[];
   blockShorts: boolean;
 }
 
@@ -27,8 +26,10 @@ export interface RuleInput {
  * Traduce la configuración a reglas declarativeNetRequest. Las webs bloqueadas
  * se redirigen a la página de foco con la URL original tras el "#".
  *
- * Prioridades: 1 = bloqueo general, 2 = lista blanca (allow), 3 = Shorts
- * (gana incluso si YouTube está en la lista blanca).
+ * Prioridades (gana la más alta):
+ * 1 = bloquear todo (lista blanca)   2 = webs permitidas
+ * 3 = webs de lista negra            4 = pases temporales
+ * 5 = Shorts (ni la lista blanca ni un pase los desbloquean)
  */
 export function buildRules(input: RuleInput, blockedPageUrl: string): Rule[] {
   const redirect = {
@@ -36,35 +37,42 @@ export function buildRules(input: RuleInput, blockedPageUrl: string): Rule[] {
     redirect: { regexSubstitution: `${blockedPageUrl}#\\0` },
   };
   const rules: Omit<Rule, 'id'>[] = [];
+  const { policy } = input;
 
-  if (input.full && input.mode === 'blocklist') {
-    for (const domain of input.blocklist) {
-      rules.push({
-        priority: 1,
-        action: redirect,
-        condition: { regexFilter: domainRegex(domain), resourceTypes: ['main_frame', 'sub_frame'] },
-      } as Omit<Rule, 'id'>);
-    }
-  }
-
-  if (input.full && input.mode === 'allowlist') {
+  if (policy?.blockAll) {
     rules.push({
       priority: 1,
       action: redirect,
       condition: { regexFilter: '^https?://.*$', resourceTypes: ['main_frame'] },
     } as Omit<Rule, 'id'>);
-    if (input.allowlist.length > 0) {
+    if (policy.allow.length > 0) {
       rules.push({
         priority: 2,
         action: { type: 'allow' },
-        condition: { requestDomains: input.allowlist, resourceTypes: ['main_frame'] },
+        condition: { requestDomains: policy.allow, resourceTypes: ['main_frame'] },
       } as Omit<Rule, 'id'>);
     }
   }
 
-  if (input.blockShorts) {
+  for (const domain of policy?.block ?? []) {
     rules.push({
       priority: 3,
+      action: redirect,
+      condition: { regexFilter: domainRegex(domain), resourceTypes: ['main_frame', 'sub_frame'] },
+    } as Omit<Rule, 'id'>);
+  }
+
+  if (policy && input.passes.length > 0) {
+    rules.push({
+      priority: 4,
+      action: { type: 'allow' },
+      condition: { requestDomains: input.passes, resourceTypes: ['main_frame', 'sub_frame'] },
+    } as Omit<Rule, 'id'>);
+  }
+
+  if (input.blockShorts) {
+    rules.push({
+      priority: 5,
       action: redirect,
       condition: { regexFilter: SHORTS_REGEX, resourceTypes: ['main_frame'] },
     } as Omit<Rule, 'id'>);
